@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net8.0;net9.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>NeoMapper</PackageId>
     <Version>1.0.1</Version>
