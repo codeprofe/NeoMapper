@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace MagicMapper
+namespace NeoMapper
 {
     [AttributeUsage(AttributeTargets.Property)]
     public sealed class MapIgnoreAttribute : Attribute { }
