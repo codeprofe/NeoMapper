@@ -1,19 +1,19 @@
-# MagicMapper 🪄
+# NeoMapper 🪄
 
 Un pequeño y poderoso *mapper* genérico para .NET 8 escrito en C# sin dependencias externas. Permite mapear automáticamente entidades ⇄ DTOs usando métodos de extensión, con soporte para atributos, conversión de tipos y colecciones.
 
 ---
 
 ## 📦 Instalación
-MagicMapper está disponible en **NuGet**:
+NeoMapper está disponible en **NuGet**:
 
 ```bash
-dotnet add package MagicMapper
+dotnet add package NeoMapper
 ```
 
 Badge NuGet:
 
-[![NuGet](https://img.shields.io/nuget/v/MagicMapper.svg)](https://www.nuget.org/packages/MagicMapper/) [![Downloads](https://img.shields.io/nuget/dt/MagicMapper.svg)](https://www.nuget.org/packages/MagicMapper/)
+[![NuGet](https://img.shields.io/nuget/v/NeoMapper.svg)](https://www.nuget.org/packages/NeoMapper/) [![Downloads](https://img.shields.io/nuget/dt/NeoMapper.svg)](https://www.nuget.org/packages/NeoMapper/)
 
 ---
 
@@ -83,7 +83,7 @@ MappingExtensions.RegisterConverter<string, Role>(s => Enum.Parse<Role>(s, true)
 ---
 
 ## 📂 Estructura recomendada
-- `src/MagicMapper/ObjectMapper.cs` → código principal de MagicMapper.
+- `src/NeoMapper/ObjectMapper.cs` → código principal de NeoMapper.
 - DTOs y Entidades en sus capas respectivas.
 
 ---
@@ -101,4 +101,4 @@ MIT – Puedes usarlo y adaptarlo libremente.
 
 ---
 
-MagicMapper: *Convierte tus objetos como por arte de magia.* 🪄
+NeoMapper: *Convierte tus objetos como por arte de magia.* 🪄
