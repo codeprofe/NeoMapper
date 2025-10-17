@@ -4,7 +4,7 @@
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>NeoMapper</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>Francis Fulgencio</Authors>
     <Company>TuEmpresa</Company>
     <Description>NeoMapper es un mapeador genérico y ligero para .NET 8 que convierte entidades a DTOs y viceversa usando métodos de extensión y atributos personalizados.</Description>

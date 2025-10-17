@@ -1,40 +1,40 @@
 # NeoMapper 🪄
 
-Un pequeño y poderoso *mapper* genérico para .NET 8 escrito en C# sin dependencias externas. Permite mapear automáticamente entidades ⇄ DTOs usando métodos de extensión, con soporte para atributos, conversión de tipos y colecciones.
+A small yet powerful generic *mapper* for .NET 8 written in C# with no external dependencies. Automatically maps entities ⇄ DTOs using extension methods, supporting attributes, type conversion, and collections.
 
 ---
 
-## 📦 Instalación
-NeoMapper está disponible en **NuGet**:
+## 📦 Installation
+NeoMapper is available on **NuGet**:
 
 ```bash
 dotnet add package NeoMapper
 ```
 
-Badge NuGet:
+NuGet Badge:
 
 [![NuGet](https://img.shields.io/nuget/v/NeoMapper.svg)](https://www.nuget.org/packages/NeoMapper/) [![Downloads](https://img.shields.io/nuget/dt/NeoMapper.svg)](https://www.nuget.org/packages/NeoMapper/)
 
 ---
 
-## 🚀 Características
-- **Métodos de extensión simples**:
-  - `MapTo<TDest>()` → crea un objeto destino a partir de la fuente.
-  - `MapFrom(source)` → rellena una instancia existente.
-- **Atributos personalizables**:
-  - `[MapIgnore]` → ignora propiedades.
-  - `[MapName("OtraPropiedad")]` → alias entre nombres diferentes.
-- **Conversión de tipos incluida**:
+## 🚀 Features
+- **Simple extension methods**:
+  - `MapTo<TDest>()` → creates a destination object from the source.
+  - `MapFrom(source)` → fills an existing instance.
+- **Customizable attributes**:
+  - `[MapIgnore]` → ignores properties.
+  - `[MapName("OtherProperty")]` → alias for different property names.
+- **Built-in type conversion**:
   - Nullables (`int?`, `DateTime?`, etc.).
-  - Enums ↔ string/números.
+  - Enums ↔ string/numbers.
   - `Guid`, `DateTime`, `decimal`, `TimeSpan`, etc.
-- **Colecciones**: convierte `IEnumerable<T>` a `List<TDestino>`.
-- **Mapeo recursivo**: objetos complejos son mapeados propiedad por propiedad.
-- **Convertidores personalizados**: registra tus propias funciones de conversión entre tipos.
+- **Collections**: converts `IEnumerable<T>` to `List<TDestination>`.
+- **Recursive mapping**: complex objects are mapped property by property.
+- **Custom converters**: register your own conversion functions between types.
 
 ---
 
-## 🧑‍💻 Uso rápido
+## 🧑‍💻 Quick usage
 ```csharp
 using GenericMapper;
 
@@ -47,24 +47,24 @@ var user = new User
     Roles = new List<Role> { Role.Admin, Role.User }
 };
 
-// Entidad → DTO
+// Entity → DTO
 var dto = user.MapTo<UserDto>();
 
-// DTO → Entidad
+// DTO → Entity
 var user2 = dto.MapTo<User>();
 
-// Mapear sobre instancia existente
+// Map onto existing instance
 user2.MapFrom(new UserDto { Id = 7, Name = "Ada Byron" });
 ```
 
 ---
 
-## 🛠️ Ejemplo de atributos
+## 🛠️ Attribute example
 ```csharp
 public sealed class UserDto
 {
     public int Id { get; set; }
-    [MapName("FullName")] // Mapear FullName de la entidad hacia Name del DTO
+    [MapName("FullName")] // Map FullName from entity to Name in DTO
     public string Name { get; set; } = string.Empty;
     public string CreatedAt { get; set; } = string.Empty;
     public AddressDto? Address { get; set; }
@@ -74,7 +74,7 @@ public sealed class UserDto
 
 ---
 
-## 🔧 Convertidores personalizados
+## 🔧 Custom converters
 ```csharp
 MappingExtensions.RegisterConverter<Role, string>(r => r.ToString());
 MappingExtensions.RegisterConverter<string, Role>(s => Enum.Parse<Role>(s, true));
@@ -82,23 +82,23 @@ MappingExtensions.RegisterConverter<string, Role>(s => Enum.Parse<Role>(s, true)
 
 ---
 
-## 📂 Estructura recomendada
-- `src/NeoMapper/ObjectMapper.cs` → código principal de NeoMapper.
-- DTOs y Entidades en sus capas respectivas.
+## 📂 Recommended structure
+- `src/NeoMapper/ObjectMapper.cs` → main NeoMapper code.
+- DTOs and Entities in their respective layers.
 
 ---
 
-## 📜 Licencia
-MIT – Puedes usarlo y adaptarlo libremente.
+## 📜 License
+MIT – You can use and adapt it freely.
 
 ---
 
-## ✨ Contribuciones
-¡Ideas y mejoras son bienvenidas! Puedes añadir:
-- Soporte para expresiones de configuración fluida.
-- Manejo avanzado de formatos de fecha/hora.
-- Serialización directa desde JSON.
+## ✨ Contributions
+Ideas and improvements are welcome! You can add:
+- Support for fluent configuration expressions.
+- Advanced date/time format handling.
+- Direct serialization from JSON.
 
 ---
 
-NeoMapper: *Convierte tus objetos como por arte de magia.* 🪄
+NeoMapper: *Transform your objects as if by magic.* 🪄
