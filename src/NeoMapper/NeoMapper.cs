@@ -125,17 +125,58 @@ namespace NeoMapper
                 if (!dProp.CanWrite) continue;
                 if (dProp.GetCustomAttribute<MapIgnoreAttribute>() != null) continue;
 
-                var destValue = dProp.GetValue(dest);
+                var destType = dProp.PropertyType;
+                var srcType = sValue.GetType();
 
-                var converted = ConvertValue(
-                    sValue,
-                    dProp.PropertyType,
-                    destValue
-                );
-
-                if (converted.isSet && converted.value != destValue)
+                // Handle collections
+                if (IsEnumerableOfT(srcType, out var srcElem) && IsEnumerableOfT(destType, out var destElem))
                 {
-                    dProp.SetValue(dest, converted.value);
+                    if (dProp.GetValue(dest) is IList existingList)
+                    {
+                        existingList.Clear();
+                        foreach (var item in (IEnumerable)sValue)
+                        {
+                            var (ok, mappedItem) = ConvertValue(item, destElem);
+                            if (ok) existingList.Add(mappedItem);
+                        }
+                    }
+                    else
+                    {
+                        var listType = typeof(List<>).MakeGenericType(destElem);
+                        var list = (IList)Activator.CreateInstance(listType)!;
+                        foreach (var item in (IEnumerable)sValue)
+                        {
+                            var (ok, mappedItem) = ConvertValue(item, destElem);
+                            if (ok) list.Add(mappedItem);
+                        }
+                        dProp.SetValue(dest, list);
+                    }
+                }
+                // Handle complex objects
+                else if (destType.IsClass && destType != typeof(string) && !destType.IsEnum)
+                {
+                    var existing = dProp.GetValue(dest);
+                    if (existing is not null && destType.IsAssignableFrom(existing.GetType()))
+                    {
+                        Map(sValue, existing);
+                    }
+                    else
+                    {
+                        var nested = Activator.CreateInstance(destType);
+                        if (nested is not null)
+                        {
+                            Map(sValue, nested);
+                            dProp.SetValue(dest, nested);
+                        }
+                    }
+                }
+                else
+                {
+                    var converted = ConvertValue(sValue, destType);
+                    if (converted.isSet)
+                    {
+                        dProp.SetValue(dest, converted.value);
+                    }
                 }
             }
         }
@@ -183,6 +224,65 @@ namespace NeoMapper
             return string.IsNullOrWhiteSpace(alias) ? sProp.Name : alias!;
         }
 
+        private static (bool isSet, object? value) ConvertValue(object? sourceValue, Type destType)
+        {
+            if (sourceValue is null) return (true, null);
+
+            var srcType = sourceValue.GetType();
+            var pair = new TypePair(srcType, destType);
+
+            // Convertidor personalizado registrado
+            if (_customConverters.TryGetValue(pair, out var conv))
+            {
+                return (true, conv(sourceValue));
+            }
+
+            // Si el destino acepta el tipo fuente directamente
+            if (destType.IsAssignableFrom(srcType))
+                return (true, sourceValue);
+
+            // Nullables
+            var (isNullable, underlyingDest) = UnwrapNullable(destType);
+
+            // Enums
+            if (underlyingDest.IsEnum)
+            {
+                try
+                {
+                    if (srcType == typeof(string))
+                        return (true, Enum.Parse(underlyingDest, (string)sourceValue!, ignoreCase: true));
+
+                    var number = System.Convert.ChangeType(sourceValue, Enum.GetUnderlyingType(underlyingDest));
+                    return (true, Enum.ToObject(underlyingDest, number!));
+                }
+                catch { return (false, null); }
+            }
+
+            // Tipos "simples": primitivos, string, Guid, DateTime, decimal, TimeSpan
+            if (IsSimple(srcType, underlyingDest))
+            {
+                try
+                {
+                    var converted = System.Convert.ChangeType(sourceValue, underlyingDest);
+                    return (true, converted);
+                }
+                catch
+                {
+                    // conversiones específicas comunes
+                    if (underlyingDest == typeof(Guid) && sourceValue is string sGuid && Guid.TryParse(sGuid, out var g))
+                        return (true, g);
+
+                    if (underlyingDest == typeof(DateTime) && sourceValue is string sDt && DateTime.TryParse(sDt, out var dt))
+                        return (true, dt);
+
+                    return (false, null);
+                }
+            }
+
+            return (false, null);
+        }
+
+
         //private static (bool isSet, object? value) ConvertValue(object? sourceValue, Type destType)
         private static (bool isSet, object? value) ConvertValue(object? sourceValue, Type destType, object? existingDestValue)
         {
@@ -219,72 +319,16 @@ namespace NeoMapper
             }
 
             // Colecciones genéricas: IEnumerable<TSrc> → List<TDest>
-            // Colecciones genéricas: IEnumerable<TSrc> → ICollection<TDest>
-            // Colecciones genéricas: IEnumerable<TSrc> → IEnumerable<TDest>
-            if (IsEnumerableOfT(srcType, out var srcElem) &&
-                IsEnumerableOfT(destType, out var destElem))
+            if (IsEnumerableOfT(srcType, out var srcElem) && IsEnumerableOfT(destType, out var destElem))
             {
-                // Si ya existe colección destino, reutilizarla
-                if (existingDestValue is not null)
-                {
-                    foreach (var srcItem in (IEnumerable)sourceValue)
-                    {
-                        if (srcItem is null) continue;
-
-                        object? existingItem = null;
-
-                        // Buscar por Id (convención)
-                        var srcIdProp = srcItem.GetType().GetProperty("Id");
-                        if (srcIdProp != null)
-                        {
-                            var srcId = srcIdProp.GetValue(srcItem);
-
-                            existingItem = AsEnumerable(existingDestValue)
-                                .Cast<object>()
-                                .FirstOrDefault(d =>
-                                {
-                                    var dIdProp = d.GetType().GetProperty("Id");
-                                    return dIdProp != null && Equals(dIdProp.GetValue(d), srcId);
-                                });
-                        }
-
-                        if (existingItem != null)
-                        {
-                            // 🔥 Mapear sobre la instancia existente
-                            Map(srcItem, existingItem);
-                        }
-                        else
-                        {
-                            // Crear nuevo elemento
-                            var (ok, mappedItem) = ConvertValue(
-                                srcItem,
-                                destElem,
-                                existingDestValue: null
-                            );
-
-                            if (ok && mappedItem != null)
-                            {
-                                TryAddToCollection(existingDestValue, mappedItem);
-                            }
-                        }
-                    }
-
-                    // No reemplazar la colección
-                    return (true, existingDestValue);
-                }
-
-                // No había colección → crear una nueva List<T>
                 var listType = typeof(List<>).MakeGenericType(destElem);
-                var newCollection = Activator.CreateInstance(listType)!;
-
-                foreach (var srcItem in (IEnumerable)sourceValue)
+                var list = (IList)Activator.CreateInstance(listType)!;
+                foreach (var item in (IEnumerable)sourceValue)
                 {
-                    var (ok, mappedItem) = ConvertValue(srcItem, destElem, null);
-                    if (ok && mappedItem != null)
-                        TryAddToCollection(newCollection, mappedItem);
+                    var (ok, mappedItem) = ConvertValue(item, destElem);
+                    if (ok) list.Add(mappedItem);
                 }
-
-                return (true, newCollection);
+                return (true, list);
             }
 
             // Tipos "simples": primitivos, string, Guid, DateTime, decimal, TimeSpan
