@@ -36,44 +36,6 @@ namespace NeoMapper
 
     public static class MappingExtensions
     {
-        private static IEnumerable AsEnumerable(object collection)
-        {
-            return collection is IEnumerable e ? e : Enumerable.Empty<object>();
-        }
-
-        private static bool TryAddToCollection(object collection, object? item)
-        {
-            if (collection == null || item == null) return false;
-
-            var colType = collection.GetType();
-
-            // Caso ICollection<T>
-            var iCollection = colType
-                .GetInterfaces()
-                .FirstOrDefault(i =>
-                    i.IsGenericType &&
-                    i.GetGenericTypeDefinition() == typeof(ICollection<>));
-
-            if (iCollection != null)
-            {
-                colType
-                    .GetMethod("Add", new[] { iCollection.GetGenericArguments()[0] })?
-                    .Invoke(collection, new[] { item });
-                return true;
-            }
-
-            // Fallback: método Add por reflection
-            var addMethod = colType.GetMethod("Add");
-            if (addMethod != null)
-            {
-                addMethod.Invoke(collection, new[] { item });
-                return true;
-            }
-
-            return false;
-        }
-
-
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propsCache = new();
         private static readonly ConcurrentDictionary<TypePair, Dictionary<string, PropertyInfo>> _destPropMapCache = new();
         private static readonly ConcurrentDictionary<TypePair, bool> _isSimpleCache = new();
@@ -258,66 +220,6 @@ namespace NeoMapper
                 catch { return (false, null); }
             }
 
-            // Tipos "simples": primitivos, string, Guid, DateTime, decimal, TimeSpan
-            if (IsSimple(srcType, underlyingDest))
-            {
-                try
-                {
-                    var converted = System.Convert.ChangeType(sourceValue, underlyingDest);
-                    return (true, converted);
-                }
-                catch
-                {
-                    // conversiones específicas comunes
-                    if (underlyingDest == typeof(Guid) && sourceValue is string sGuid && Guid.TryParse(sGuid, out var g))
-                        return (true, g);
-
-                    if (underlyingDest == typeof(DateTime) && sourceValue is string sDt && DateTime.TryParse(sDt, out var dt))
-                        return (true, dt);
-
-                    return (false, null);
-                }
-            }
-
-            return (false, null);
-        }
-
-
-        //private static (bool isSet, object? value) ConvertValue(object? sourceValue, Type destType)
-        private static (bool isSet, object? value) ConvertValue(object? sourceValue, Type destType, object? existingDestValue)
-        {
-            if (sourceValue is null) return (true, null);
-
-            var srcType = sourceValue.GetType();
-            var pair = new TypePair(srcType, destType);
-
-            // Convertidor personalizado registrado
-            if (_customConverters.TryGetValue(pair, out var conv))
-            {
-                return (true, conv(sourceValue));
-            }
-
-            // Si el destino acepta el tipo fuente directamente
-            if (destType.IsAssignableFrom(srcType))
-                return (true, sourceValue);
-
-            // Nullables
-            var (isNullable, underlyingDest) = UnwrapNullable(destType);
-
-            // Enums
-            if (underlyingDest.IsEnum)
-            {
-                try
-                {
-                    if (srcType == typeof(string))
-                        return (true, Enum.Parse(underlyingDest, (string)sourceValue!, ignoreCase: true));
-
-                    var number = System.Convert.ChangeType(sourceValue, Enum.GetUnderlyingType(underlyingDest));
-                    return (true, Enum.ToObject(underlyingDest, number!));
-                }
-                catch { return (false, null); }
-            }
-
             // Colecciones genéricas: IEnumerable<TSrc> → List<TDest>
             if (IsEnumerableOfT(srcType, out var srcElem) && IsEnumerableOfT(destType, out var destElem))
             {
@@ -352,27 +254,7 @@ namespace NeoMapper
                 }
             }
 
-            // Objetos complejos: mapeo recursivo
-            try
-            {
-                if (existingDestValue != null)
-                {
-                    // 🔥 CLAVE: NO crear nueva instancia
-                    Map(sourceValue, existingDestValue);
-                    return (true, existingDestValue);
-                }
-
-                // Solo crear nueva si NO hay instancia previa
-                var nested = Activator.CreateInstance(underlyingDest);
-                if (nested is null) return (false, null);
-
-                Map(sourceValue, nested);
-                return (true, nested);
-            }
-            catch
-            {
-                return (false, null);
-            }
+            return (false, null);
         }
 
         private static (bool isNullable, Type underlying) UnwrapNullable(Type t)
