@@ -93,20 +93,49 @@ namespace NeoMapper
                 // Handle collections
                 if (IsEnumerableOfT(srcType, out var srcElem) && IsEnumerableOfT(destType, out var destElem))
                 {
+                    var srcList = (IEnumerable)sValue;
+                    var srcArray = srcList.Cast<object>().ToArray();
                     if (dProp.GetValue(dest) is IList existingList)
                     {
-                        existingList.Clear();
-                        foreach (var item in (IEnumerable)sValue)
+                        if (existingList.Count == srcArray.Length)
                         {
-                            var (ok, mappedItem) = ConvertValue(item, destElem);
-                            if (ok) existingList.Add(mappedItem);
+                            // Asumir orden igual, mapear a existentes para preservar propiedades no mapeadas
+                            int i = 0;
+                            foreach (var item in srcArray)
+                            {
+                                if (i < existingList.Count)
+                                {
+                                    var existingItem = existingList[i];
+                                    if (existingItem != null && destElem.IsAssignableFrom(existingItem.GetType()))
+                                    {
+                                        Map(item, existingItem);
+                                    }
+                                    else
+                                    {
+                                        // Reemplazar si no compatible
+                                        var (ok, mapped) = ConvertValue(item, destElem);
+                                        if (ok) existingList[i] = mapped;
+                                    }
+                                }
+                                i++;
+                            }
+                        }
+                        else
+                        {
+                            // Diferente count, clear y agregar nuevos
+                            existingList.Clear();
+                            foreach (var item in srcList)
+                            {
+                                var (ok, mappedItem) = ConvertValue(item, destElem);
+                                if (ok) existingList.Add(mappedItem);
+                            }
                         }
                     }
                     else
                     {
                         var listType = typeof(List<>).MakeGenericType(destElem);
                         var list = (IList)Activator.CreateInstance(listType)!;
-                        foreach (var item in (IEnumerable)sValue)
+                        foreach (var item in srcList)
                         {
                             var (ok, mappedItem) = ConvertValue(item, destElem);
                             if (ok) list.Add(mappedItem);
@@ -250,6 +279,22 @@ namespace NeoMapper
                     if (underlyingDest == typeof(DateTime) && sourceValue is string sDt && DateTime.TryParse(sDt, out var dt))
                         return (true, dt);
 
+                    return (false, null);
+                }
+            }
+
+            // Objetos complejos: mapeo recursivo
+            if (underlyingDest.IsClass && underlyingDest != typeof(string) && !underlyingDest.IsEnum)
+            {
+                try
+                {
+                    var nested = Activator.CreateInstance(underlyingDest);
+                    if (nested is null) return (false, null);
+                    Map(sourceValue, nested);
+                    return (true, nested);
+                }
+                catch
+                {
                     return (false, null);
                 }
             }
